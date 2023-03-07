@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { Configuration, OpenAIApi } = require('openai');
 const fs = require('fs');
+const WebSocket = require('ws');
+const server = new WebSocket.Server({ port: 8080 });
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,7 +16,14 @@ function getDefaultPrompt(title, question) {
   Ответь на вопрос "${question}", а также создай встречный вопрос на эту тему.`;
 }
 
-(async function () {
+server.on('connection', async (socket) => {
+  console.log('Client connected');
+
+  // Send a welcome message to the client
+  socket.send('Welcome to the server!');
+
+  const marker = { connected: true };
+
   let question = 'Чей Крым?';
 
   const personality1 = {
@@ -41,12 +50,18 @@ function getDefaultPrompt(title, question) {
         },
       ],
     });
-    const answer = completion.data.choices[0].message.content.replaceAll(
-      '\n',
-      ' '
-    );
+    const answer = completion.data.choices[0].message.content
+      .replaceAll('\n', ' ')
+      .trim();
     console.log(`- ${personality.title}: ${answer}`);
     fs.appendFileSync('data.txt', `- ${personality.title}: ${answer}\n`);
+
+    socket.send(
+      JSON.stringify({
+        title: personality.title,
+        content: answer,
+      })
+    );
 
     const another =
       personality.title === personality1.title ? personality2 : personality1;
@@ -72,11 +87,24 @@ function getDefaultPrompt(title, question) {
 
     return new Promise((resolve, reject) => {
       setTimeout(async () => {
-        const data = await req(another, answer);
-        resolve(data);
+        if (marker.connected) {
+          const data = await req(another, answer);
+          resolve();
+        } else {
+          resolve();
+        }
       }, delay * 1000);
     });
   };
 
-  await req(personality1, question);
-})();
+  req(personality1, question).then((val) => console.log('Stopped'));
+
+  socket.on('message', (message) => {
+    console.log(`Received message: ${message}`);
+  });
+
+  socket.on('close', () => {
+    marker.connected = false;
+    console.log('Client disconnected');
+  });
+});
