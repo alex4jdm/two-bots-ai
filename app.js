@@ -3,11 +3,24 @@ const { Configuration, OpenAIApi } = require('openai');
 const fs = require('fs');
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 8080 });
+const textToSpeech = require('@google-cloud/text-to-speech');
+const client = new textToSpeech.TextToSpeechClient({
+  keyFilename: 'service-account-key.json',
+});
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
+
+const voice = {
+  languageCode: 'ru-RU',
+  name: 'ru-RU-Wavenet-D',
+};
+const audioConfig = {
+  audioEncoding: 'MP3',
+  sampleRateHertz: 16000,
+};
 
 function getDefaultPrompt(title, question) {
   return `Думай как ${title}. Cтарайся вести дискуссию со мной.
@@ -56,11 +69,25 @@ server.on('connection', async (socket) => {
     console.log(`- ${personality.title}: ${answer}`);
     fs.appendFileSync('data.txt', `- ${personality.title}: ${answer}\n`);
 
-    socket.send(
-      JSON.stringify({
-        title: personality.title,
-        content: answer,
-      })
+    client.synthesizeSpeech(
+      {
+        input: { text: answer },
+        voice,
+        audioConfig,
+      },
+      (err, response) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        socket.send(
+          JSON.stringify({
+            title: personality.title,
+            content: answer,
+            voice: response.audioContent,
+          })
+        );
+      }
     );
 
     const another =

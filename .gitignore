@@ -1,5 +1,6 @@
 .env
 data.txt
+service-account-key.json
 
 # Logs
 logs
