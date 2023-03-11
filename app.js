@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Configuration, OpenAIApi } = require('openai');
 const fs = require('fs');
-var mp3Duration = require('mp3-duration');
+const mp3Duration = require('mp3-duration');
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 8080 });
 const textToSpeech = require('@google-cloud/text-to-speech');
