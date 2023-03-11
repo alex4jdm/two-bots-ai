@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Configuration, OpenAIApi } = require('openai');
 const fs = require('fs');
+var mp3Duration = require('mp3-duration');
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 8080 });
 const textToSpeech = require('@google-cloud/text-to-speech');
@@ -75,16 +76,19 @@ server.on('connection', async (socket) => {
         voice,
         audioConfig,
       },
-      (err, response) => {
+      async (err, response) => {
         if (err) {
           console.error(err);
           return;
         }
+
+        const voiceDuration = await mp3Duration(response.audioContent);
         socket.send(
           JSON.stringify({
             title: personality.title,
             content: answer,
             voice: response.audioContent,
+            voiceDuration 
           })
         );
       }
